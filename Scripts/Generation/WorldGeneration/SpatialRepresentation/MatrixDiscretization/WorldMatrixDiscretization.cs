@@ -11,13 +11,45 @@ public class WorldMatrixDiscretization
     public int width;
     public int height;
 
-    private static int PADDING = 10;
-    private static int RESOLUTION = 3;
+    private const int TARGETCELLNUMBER = 20000;
+    private const int PADDING = 10;
 
-    float north = 0f, south = 0f, west = 0f, east = 0f;
     public WorldMatrixDiscretization(Dictionary<RegionNode, Vector2> spaceInstance)
     {
-        CalculateSize(spaceInstance);
+        // CALCULATE GRAPH DIMENSIONS
+
+        double north = double.MinValue;
+        double south = double.MaxValue;
+        double west = double.MaxValue;
+        double east = double.MinValue;
+    
+        foreach (var point in spaceInstance.Values)
+        {
+            north = Math.Max(north, point.Y);
+            south = Math.Min(south, point.Y);
+            west = Math.Min(west, point.X);
+            east = Math.Max(east, point.X);
+        }
+
+        double graphAR = (east-west)/(north-south);
+    
+        // CALCULATE NUMBER AND SIZE OF CELLS PER DIMENSION
+
+        double a = 1/graphAR;
+        double b = 2*PADDING/graphAR + 2*PADDING;
+        double c = 2*PADDING*2*PADDING-TARGETCELLNUMBER;
+        
+        double graphXCells = (-b + Math.Sqrt(b*b - 4*a*c))/( 2*a ); // Solving a system so that AR is conserved and number of cells is TARGETCELLNUMBER
+        double graphYCells = graphXCells/graphAR;
+
+        double CellXSize = (east-west)/graphXCells;
+        double CellYSize = (north-south)/graphYCells;
+
+        // CREATE BLANK WORLD MATRIX
+
+        width = (int)Math.Ceiling(graphXCells) + 2*PADDING;
+        height = (int)Math.Ceiling(graphYCells) + 2*PADDING;
+
         WorldMatrix = new int[width,height];
         
         for (int x = 0; x < width; x++)
@@ -27,41 +59,15 @@ public class WorldMatrixDiscretization
                 WorldMatrix[x, y] = -1;
             }
         }
-        DiscretizePositions(spaceInstance);
-    }    
 
-        private void CalculateSize(
-        Dictionary<RegionNode, Vector2> spaceInstance)
-    {
-        north = float.MinValue;
-        south = float.MaxValue;
-        west = float.MaxValue;
-        east = float.MinValue;
-    
-        foreach (var point in spaceInstance.Values)
-        {
-            north = Math.Max(north, point.Y);
-            south = Math.Min(south, point.Y);
-            west = Math.Min(west, point.X);
-            east = Math.Max(east, point.X);
-        }
-    
-        int contentWidth = (int)Math.Ceiling((east - west)* RESOLUTION) + 1;
-        int contentHeight = (int)Math.Ceiling((north - south)* RESOLUTION) + 1;
-    
-        width = contentWidth + PADDING * 2;
-        height = contentHeight + PADDING * 2;
-    }
+        // INSERT DISCRETIZED NODE POSITIONS
 
-      private void DiscretizePositions(
-        Dictionary<RegionNode, Vector2> spaceInstance)
-    {
         foreach (var node in spaceInstance)
         {
             Vector2 point = node.Value;
 
-            int x = (int)Math.Round((point.X - west)* RESOLUTION) + PADDING;
-            int y = (int)Math.Round((point.Y - south)* RESOLUTION )+ PADDING;
+            int x = (int)Math.Floor((point.X - west)/CellXSize) + PADDING;
+            int y = (int)Math.Floor((point.Y - south)/CellYSize) + PADDING;
 
             Vector2 newPointCoordinates = new Vector2(x,y);
 
@@ -69,18 +75,18 @@ public class WorldMatrixDiscretization
 
             keyValuePairs.Add(node.Key.Id, newPointCoordinates);
         }
-    }
-
+    }    
+    
     public void PrintMatrix()
-{
-    for (int y = 0; y < height; y++)
     {
-        for (int x = 0; x < width; x++)
+        for (int y = 0; y < height; y++)
         {
-            Console.Write($"{WorldMatrix[x, y],2}");
-        }
+            for (int x = 0; x < width; x++)
+            {
+                Console.Write($"{WorldMatrix[x, y],2}");
+            }
 
-        Console.WriteLine();
+            Console.WriteLine();
+        }
     }
-}
 }
